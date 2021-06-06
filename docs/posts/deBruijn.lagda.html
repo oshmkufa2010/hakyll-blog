@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>My Hakyll Blog - de Bruijn 索引</title>
+    <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    <link rel="stylesheet" type="text/css" href="../css/Agda.css" />
+</head>
+
+<body>
+    <div id="header">
+        <div id="logo">
+            <a href="../">My Hakyll Blog</a>
+        </div>
+        <div id="navigation">
+            <a href="../">Home</a>
+            <a href="../about.html">About</a>
+            <a href="../contact.html">Contact</a>
+            <a href="../archive.html">Archive</a>
+        </div>
+    </div>
+
+    <div id="content">
+        <h1>de Bruijn 索引</h1>
+
+        <div class="info">
+    Posted on June  6, 2021
+    
+</div>
+
+<pre class="Agda"><a id="51" class="Keyword">module</a> <a id="58" href class="Module">posts.deBruijn</a> <a id="73" class="Keyword">where</a>
+<a id="79" class="Keyword">open</a> <a id="84" class="Keyword">import</a> <a id="91" href="https://agda.github.io/agda-stdlib/v1.5/Data.Nat.html" class="Module">Data.Nat</a>
+<a id="100" class="Keyword">open</a> <a id="105" class="Keyword">import</a> <a id="112" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html" class="Module">Data.Fin</a> <a id="121" class="Comment">-- using (Fin; raise; zero; suc)</a>
+<a id="154" class="Keyword">open</a> <a id="159" class="Keyword">import</a> <a id="166" href="https://agda.github.io/agda-stdlib/v1.5/Relation.Binary.PropositionalEquality.html" class="Module">Relation.Binary.PropositionalEquality</a> <a id="204" class="Keyword">using</a> <a id="210" class="Symbol">(</a><a id="211" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Equality.html#151" class="Datatype Operator">_≡_</a><a id="214" class="Symbol">;</a> <a id="216" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Equality.html#208" class="InductiveConstructor">refl</a><a id="220" class="Symbol">)</a>
+</pre>
+<p>众所周知，含有名字的 Lambda 演算中比较麻烦的一件事就是替换，比如对于替换 <code>(λx. y)[y := x]</code>，由于替换进来的 lambda 项含有自由变量 <code>x</code>， 如果直接将 <code>y</code> 变成 <code>x</code>，那么会得到 <code>λx. x</code>，自由变量 <code>x</code> 被绑定了，显然这是一个不正确的结果。 一般的解决方式是对 <code>λx. y</code> 进行α-变换，即对绑定变量进行重命名， 这里我们把 <code>x</code> 变成 <code>z</code>，那么可以得到 <code>(λz. y)[y := x]</code>，此时可以直接得到结果 <code>λz. x</code>。 按照这种方式我们可以写出如下的替换定义：</p>
+<pre><code>(1a) x[x := N] ≡ N,
+(1b) y[x := N] ≡ y if x ̸≡ y,
+(2) (PQ)[x := N] ≡ (P[x := N])(Q[x := N]),
+(3) (λy. P)[x := N] ≡ λz. (P[y := z][x := N]), 其中 z ∉ FV(N)，即 z 不为 N 的自由变量</code></pre>
+<p>定义(3)说明，我们必须得创建一个新名字，这种定义并不优雅，如果用代码实现可能需要维护一些额外的状态， 为了解决这个问题，我们使用数字来表示变量，数字 <code>k</code> 表示由内向外第 <code>k</code> 个封闭 λ 所绑定的变量，<code>k</code> 被称为 <em>de Bruijn 索引</em>，用这种方式表示的项叫做 <em>de Bruijn 项</em>。</p>
+<p>比如，我们用 <code>λ. 0</code> 表示 <code>λx. x</code>，因为这里的 <code>x</code> 被第 0 个 λ 所绑定。 又比如，我们用 <code>λ. λ. 0 1</code> 表示 <code>λx. λy. x y</code>，这里的 <code>x</code> 和 <code>y</code> 分别是由内向外第 0 个和第 1 个 λ 所绑定的变量。 上面的两个例子都不含自由变量，对于含有自由变量的项，例如 <code>λ x. x y</code>，我们不知道应该怎样表示 <code>y</code>， 需要引入一个命名上下文对所有自由变量分配一个初始索引， 对于上面的例子，我们假设有命名上下文 <code>Γ = y, a, b, c, d, e</code>，那么我们能得到 <code>Γ</code> 下 <code>λ x. x y</code> 的 de Bruijn 项表示为 <code>λ. 0 6</code>，<code>y</code> 在 <code>Γ</code> 下的索引为 5，在项中变成 6 是因为引入了内层 λ，所以由内向往数 λ 要 +1。</p>
+<p>由于我们的项包含自由变量，必须给定一个能绑定所有自由变量的上下文才能使项有意义。 例如要为一个 de Bruijn 项赋型，那么上下文必须给项中的每一个自由变量都绑定一个类型。 如果对一个 de Bruijn 项求值，那么上下文必须给相中的每一个自由变量都绑定一个值。 项中的每一个自由变量在上下文中都对应一个唯一的索引，叫做<em>上下文索引</em>，项 <code>1</code> 中自由变量 <code>1</code> 对应的上下文索引是 <code>1</code>，项 <code>λ. 0 1 2</code> 中自由变量 <code>1</code> 和 <code>2</code> 对应的上下文索引是 <code>0</code> 和 <code>1</code>。 项的上下文索引和 de Bruijn 索引有以下关系：</p>
+<pre><code>项的上下文索引 + λ 层数 = de Bruijn 索引</code></pre>
+<p>为了处理方便，我们用一个自然数 <code>n</code> 约束上下文，表示上下文为 <code>[0, n)</code> 范围内的上下文索引都提供了绑定，例如对于项 <code>0 1</code>，我们可以取 <code>n = 2</code>，也可以取 <code>n = 3</code>。</p>
+<p>下面开始在 Agda 中定义 de Bruijn 项。</p>
+<pre class="Agda"><a id="1644" class="Keyword">infix</a>  <a id="1651" class="Number">5</a> <a id="1653" href="#1779" class="InductiveConstructor Operator">ƛ_</a>
+<a id="1656" class="Keyword">infixl</a> <a id="1663" class="Number">7</a> <a id="1665" href="#1739" class="InductiveConstructor Operator">_·_</a>
+<a id="1669" class="Keyword">infix</a>  <a id="1676" class="Number">9</a> <a id="1678" href="#1710" class="InductiveConstructor Operator">`_</a>
+
+<a id="1682" class="Keyword">data</a> <a id="Term"></a><a id="1687" href="#1687" class="Datatype">Term</a> <a id="1692" class="Symbol">:</a> <a id="1694" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#192" class="Datatype">ℕ</a> <a id="1696" class="Symbol">→</a> <a id="1698" class="PrimitiveType">Set</a> <a id="1702" class="Keyword">where</a>
+  <a id="Term.`_"></a><a id="1710" href="#1710" class="InductiveConstructor Operator">`_</a> <a id="1713" class="Symbol">:</a> <a id="1715" class="Symbol">∀{</a><a id="1717" href="#1717" class="Bound">n</a><a id="1718" class="Symbol">}</a> <a id="1720" class="Symbol">→</a> <a id="1722" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="1726" href="#1717" class="Bound">n</a> <a id="1728" class="Symbol">→</a> <a id="1730" href="#1687" class="Datatype">Term</a> <a id="1735" href="#1717" class="Bound">n</a>
+  <a id="Term._·_"></a><a id="1739" href="#1739" class="InductiveConstructor Operator">_·_</a> <a id="1743" class="Symbol">:</a> <a id="1745" class="Symbol">∀{</a><a id="1747" href="#1747" class="Bound">n</a><a id="1748" class="Symbol">}</a> <a id="1750" class="Symbol">→</a> <a id="1752" href="#1687" class="Datatype">Term</a> <a id="1757" href="#1747" class="Bound">n</a> <a id="1759" class="Symbol">→</a> <a id="1761" href="#1687" class="Datatype">Term</a> <a id="1766" href="#1747" class="Bound">n</a> <a id="1768" class="Symbol">→</a> <a id="1770" href="#1687" class="Datatype">Term</a> <a id="1775" href="#1747" class="Bound">n</a>
+  <a id="Term.ƛ_"></a><a id="1779" href="#1779" class="InductiveConstructor Operator">ƛ_</a> <a id="1782" class="Symbol">:</a> <a id="1784" class="Symbol">∀{</a><a id="1786" href="#1786" class="Bound">n</a><a id="1787" class="Symbol">}</a> <a id="1789" class="Symbol">→</a> <a id="1791" href="#1687" class="Datatype">Term</a> <a id="1796" class="Symbol">(</a><a id="1797" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#223" class="InductiveConstructor">suc</a> <a id="1801" href="#1786" class="Bound">n</a><a id="1802" class="Symbol">)</a> <a id="1804" class="Symbol">→</a> <a id="1806" href="#1687" class="Datatype">Term</a> <a id="1811" href="#1786" class="Bound">n</a>
+</pre>
+<p>我们使用了自然数 <code>n</code> 索引项的类型，表示项中自由变量的上下文索引的上界。</p>
+<ul>
+<li>如果一个 de Bruijn 索引 <code>k</code> 的范围取值为 <code>[0, n)</code>（我们使用 <code>Fin n</code> 表示 <code>[0, n)</code> 范围内自然数的类型），则 `<code>k</code> 中自由变量的上下文上界为 <code>n</code>。</li>
+<li>如果 <code>P</code> 和 <code>Q</code> 中自由变量上下文索引上界为 <code>n</code>，则 <code>P · Q</code> 中自由变量上下文索引上界也为 <code>n</code>。</li>
+<li>如果 <code>P</code> 自由变量上下文索引的上界为 <code>suc n</code>，那么 <code>ƛ P</code> 自由变量的上下文索引上界为 <code>n</code>， 假设 `<code>(# 1)</code> 自由变量的上下文索引上界为 2，那么 <code>ƛ</code>(# 1)<code>自由变量的上下文索引上界为 1，注意这里</code>ƛ <code>(# 1)</code> 中的自由变量 <code># 1</code> 上下文索引为 0。</li>
+</ul>
+<p>一些测试用例，其中 <code># i</code> 为 <code>Fin n</code> 类型下自然数的表示：</p>
+<pre class="Agda"><a id="2232" href="#2232" class="Function">_</a> <a id="2234" class="Symbol">:</a> <a id="2236" href="#1687" class="Datatype">Term</a> <a id="2241" class="Number">1</a>
+<a id="2243" class="Symbol">_</a> <a id="2245" class="Symbol">=</a> <a id="2247" href="#1710" class="InductiveConstructor Operator">`</a><a id="2248" class="Symbol">(</a><a id="2249" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="2251" class="Number">0</a><a id="2252" class="Symbol">)</a>
+
+<a id="2255" href="#2255" class="Function">_</a> <a id="2257" class="Symbol">:</a> <a id="2259" href="#1687" class="Datatype">Term</a> <a id="2264" class="Number">2</a>
+<a id="2266" class="Symbol">_</a> <a id="2268" class="Symbol">=</a> <a id="2270" href="#1710" class="InductiveConstructor Operator">`</a><a id="2271" class="Symbol">(</a><a id="2272" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="2274" class="Number">0</a><a id="2275" class="Symbol">)</a>
+
+<a id="2278" href="#2278" class="Function">_</a> <a id="2280" class="Symbol">:</a> <a id="2282" href="#1687" class="Datatype">Term</a> <a id="2287" class="Number">0</a>
+<a id="2289" class="Symbol">_</a> <a id="2291" class="Symbol">=</a> <a id="2293" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="2295" href="#1710" class="InductiveConstructor Operator">`</a><a id="2296" class="Symbol">(</a><a id="2297" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="2299" class="Number">0</a><a id="2300" class="Symbol">)</a> <a id="2302" class="Comment">-- λx. x</a>
+
+<a id="2312" href="#2312" class="Function">_</a> <a id="2314" class="Symbol">:</a> <a id="2316" href="#1687" class="Datatype">Term</a> <a id="2321" class="Number">1</a>
+<a id="2323" class="Symbol">_</a> <a id="2325" class="Symbol">=</a> <a id="2327" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="2329" href="#1710" class="InductiveConstructor Operator">`</a><a id="2330" class="Symbol">(</a><a id="2331" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="2333" class="Number">0</a><a id="2334" class="Symbol">)</a> <a id="2336" href="#1739" class="InductiveConstructor Operator">·</a> <a id="2338" href="#1710" class="InductiveConstructor Operator">`</a><a id="2339" class="Symbol">(</a><a id="2340" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="2342" class="Number">1</a><a id="2343" class="Symbol">)</a> <a id="2345" class="Comment">-- λx. x y</a>
+
+<a id="2357" href="#2357" class="Function">_</a> <a id="2359" class="Symbol">:</a> <a id="2361" href="#1687" class="Datatype">Term</a> <a id="2366" class="Number">6</a>
+<a id="2368" class="Symbol">_</a> <a id="2370" class="Symbol">=</a> <a id="2372" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="2374" href="#1710" class="InductiveConstructor Operator">`</a><a id="2375" class="Symbol">(</a><a id="2376" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="2378" class="Number">0</a><a id="2379" class="Symbol">)</a> <a id="2381" href="#1739" class="InductiveConstructor Operator">·</a> <a id="2383" href="#1710" class="InductiveConstructor Operator">`</a><a id="2384" class="Symbol">(</a><a id="2385" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="2387" class="Number">5</a><a id="2388" class="Symbol">)</a> <a id="2390" class="Comment">-- λx. x y</a>
+</pre>
+<p>由上面的例子可以看出，项定义中出现的 <code>n</code> 可以大于等于项实际的自由变量上下文索引，这与我们对 <code>n</code> 的定义是一致的。</p>
+<p>下面开始研究 de Bruijn 项的替换。</p>
+<p>根据需求，我们只需要处理 <code>(λ. M) V</code> 的规约结果 <code>M [0 := V]</code>， 即只需要替换第 0 个自由变量，但如果 <code>M</code> 是 <code>λ. M'</code> 的形式， 那么我们需要递归地对 <code>M'</code> 进行替换，在 <code>M</code> 索引为 0 的自由变量在 <code>M'</code> 中索引会变成 1， 因此我们必须实现一个更加通用的函数来表示替换——能对任意变量进行替换。</p>
+<p>最朴素的想法是定义下面的函数：</p>
+<pre><code>naive-subst : ∀{n m} → Fin n -&gt; Term m → Term n → Term m</code></pre>
+<p><code>naive-subst</code> 只对一个变量进行替换，而实际上我们对项进行规约时可能需要多次替换。</p>
+<p>例如， 对 <code>(λ. 1 0 2) (λ. 0)</code> 进行规约， 结果是 <code>naive-subst 0 (λ. 0) (1 0 2)， 然而这个结果并不正确，因为我们去掉了一层 λ，项中自由变量的索引需要 -1 （可视为将索引为</code>suc i<code>的变量替换为项 ``i</code>）， 与此同时，我们也需要将绑定变量（即索引为 0 的变量）替换为目标项， 因此这是一个批量替换，我们用下面的函数表示：</p>
+<pre><code>subst : ∀{n m} → (Fin n → Term m) → Term n → Term m</code></pre>
+<p>使用这种方式，<code>(λx. t) v</code> 的下一步规约 <code>t[x := v]</code> 可以表示为下列函数：</p>
+<pre><code>_[_] : ∀{n} → Term (suc n) → Term n → Term n
+_[_] {n} t v = subst subst-zero t
+  where
+    subst-zero : Fin (suc n) → Term n
+    subst-zero zero = v
+    subst-zero (suc n) = ` n</code></pre>
+<p><code>subst-zero</code> 表示一个批量替换：将 <code>t</code> 第 0 个自由变量（即原绑定变量 <code>x</code>）替换成 <code>v</code> ，其他变量则索引 -1。</p>
+<p>最后一步是实现 <code>subst</code>，在实现 <code>subst</code> 之前，我们首先需要实现一个移位函数：</p>
+<pre class="Agda"><a id="rename"></a><a id="3426" href="#3426" class="Function">rename</a> <a id="3433" class="Symbol">:</a> <a id="3435" class="Symbol">∀{</a><a id="3437" href="#3437" class="Bound">n</a> <a id="3439" href="#3439" class="Bound">m</a><a id="3440" class="Symbol">}</a> <a id="3442" class="Symbol">→</a> <a id="3444" class="Symbol">(</a><a id="3445" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="3449" href="#3437" class="Bound">n</a> <a id="3451" class="Symbol">→</a> <a id="3453" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="3457" href="#3439" class="Bound">m</a><a id="3458" class="Symbol">)</a> <a id="3460" class="Symbol">→</a> <a id="3462" href="#1687" class="Datatype">Term</a> <a id="3467" href="#3437" class="Bound">n</a> <a id="3469" class="Symbol">→</a> <a id="3471" href="#1687" class="Datatype">Term</a> <a id="3476" href="#3439" class="Bound">m</a>
+<a id="3478" href="#3426" class="Function">rename</a> <a id="3485" href="#3485" class="Bound">f</a> <a id="3487" class="Symbol">(</a><a id="3488" href="#1710" class="InductiveConstructor Operator">`</a> <a id="3490" href="#3490" class="Bound">x</a><a id="3491" class="Symbol">)</a> <a id="3493" class="Symbol">=</a> <a id="3495" href="#1710" class="InductiveConstructor Operator">`</a><a id="3496" class="Symbol">(</a><a id="3497" href="#3485" class="Bound">f</a> <a id="3499" href="#3490" class="Bound">x</a><a id="3500" class="Symbol">)</a>
+<a id="3502" href="#3426" class="Function">rename</a> <a id="3509" href="#3509" class="Bound">f</a> <a id="3511" class="Symbol">(</a><a id="3512" href="#3512" class="Bound">t₁</a> <a id="3515" href="#1739" class="InductiveConstructor Operator">·</a> <a id="3517" href="#3517" class="Bound">t₂</a><a id="3519" class="Symbol">)</a> <a id="3521" class="Symbol">=</a> <a id="3523" href="#3426" class="Function">rename</a> <a id="3530" href="#3509" class="Bound">f</a> <a id="3532" href="#3512" class="Bound">t₁</a> <a id="3535" href="#1739" class="InductiveConstructor Operator">·</a> <a id="3537" href="#3426" class="Function">rename</a> <a id="3544" href="#3509" class="Bound">f</a> <a id="3546" href="#3517" class="Bound">t₂</a>
+<a id="3549" href="#3426" class="Function">rename</a> <a id="3556" class="Symbol">{</a><a id="3557" href="#3557" class="Bound">n</a><a id="3558" class="Symbol">}</a> <a id="3560" class="Symbol">{</a><a id="3561" href="#3561" class="Bound">m</a><a id="3562" class="Symbol">}</a> <a id="3564" href="#3564" class="Bound">f</a> <a id="3566" class="Symbol">(</a><a id="3567" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="3569" href="#3569" class="Bound">t</a><a id="3570" class="Symbol">)</a> <a id="3572" class="Symbol">=</a> <a id="3574" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="3576" href="#3426" class="Function">rename</a> <a id="3583" href="#3600" class="Function">f'</a> <a id="3586" href="#3569" class="Bound">t</a>
+  <a id="3590" class="Keyword">where</a>
+    <a id="3600" href="#3600" class="Function">f'</a> <a id="3603" class="Symbol">:</a> <a id="3605" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="3609" class="Symbol">(</a><a id="3610" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#223" class="InductiveConstructor">suc</a> <a id="3614" href="#3557" class="Bound">n</a><a id="3615" class="Symbol">)</a> <a id="3617" class="Symbol">→</a> <a id="3619" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="3623" class="Symbol">(</a><a id="3624" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#223" class="InductiveConstructor">suc</a> <a id="3628" href="#3561" class="Bound">m</a><a id="3629" class="Symbol">)</a>
+    <a id="3635" href="#3600" class="Function">f'</a> <a id="3638" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1168" class="InductiveConstructor">zero</a> <a id="3643" class="Symbol">=</a> <a id="3645" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1168" class="InductiveConstructor">zero</a>
+    <a id="3654" href="#3600" class="Function">f'</a> <a id="3657" class="Symbol">(</a><a id="3658" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1199" class="InductiveConstructor">suc</a> <a id="3662" href="#3662" class="Bound">i</a><a id="3663" class="Symbol">)</a> <a id="3665" class="Symbol">=</a> <a id="3667" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1199" class="InductiveConstructor">suc</a> <a id="3671" class="Symbol">(</a><a id="3672" href="#3564" class="Bound">f</a> <a id="3674" href="#3662" class="Bound">i</a><a id="3675" class="Symbol">)</a>
+</pre>
+<p><code>rename</code> 表示将项 <code>t : Term n</code> 中的自由变量整体移位，移位方式由函数 <code>f : Fin n → Fin m</code> 决定，表示将项中上下文索引为 <code>i : Fin n</code> 的自由变量变成上下文索引为 <code>j : Fin m</code> 的自由变量。 考虑项 <code>t</code>：</p>
+<ul>
+<li>如果是变量并且 de Bruijn 索引为 <code>x</code>，则它的上下文索引为 <code>x</code>，直接应用移位函数 <code>f</code> 就行。</li>
+<li>如果是 <code>t₁ · t₂</code> 的形式，那么对 <code>t₁</code> 和 <code>t₂</code> 分别递归移位即可。</li>
+<li>如果是 <code>ƛ t'</code> 的形式，注意 <code>t'</code> 的类型是 <code>Term (suc n)</code>，我们要对 <code>t'</code> 移位必须使用一个新的移位函数 <code>f' : Fin (suc n) → Fin (suc m)</code>， 我们使用 <code>f</code> 对 <code>ƛ t'</code> 的自由变量进行移位，对 <code>t'</code> 的自由变量要怎么移位呢？ 首先，对于项 <code>t</code> 而言上下文索引为 0 的变量是自由变量，也是 <code>ƛ t'</code> 中的绑定变量，因此我们不能对这个变量移位，所以 <code>f' zero = zero</code>； 其次，<code>t</code> 的上下文相对于 <code>ƛ t'</code> 多了一层 λ，所以 <code>t'</code> 中的自由变量上下文索引（除了 0 号）也会 +1，也就是 <code>ƛ t'</code> 中上下文索引为 <code>i</code> 的自由变量在 <code>t'</code> 中会变成 <code>suc i</code>， 因此对于 <code>t'</code> 中上下文索引为 <code>suc i</code> 的自由变量，我们应该将它移动到 <code>ƛ t'</code> 中上下文索引为 <code>i</code> 的自变量应该移动到的位置（即 <code>f i</code>）并 +1。</li>
+</ul>
+<p>有了 <code>rename</code>，我们就可以实现 <code>subst</code> 了：</p>
+<pre class="Agda"><a id="subst"></a><a id="4417" href="#4417" class="Function">subst</a> <a id="4423" class="Symbol">:</a> <a id="4425" class="Symbol">∀{</a><a id="4427" href="#4427" class="Bound">n</a> <a id="4429" href="#4429" class="Bound">m</a><a id="4430" class="Symbol">}</a> <a id="4432" class="Symbol">→</a> <a id="4434" class="Symbol">(</a><a id="4435" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="4439" href="#4427" class="Bound">n</a> <a id="4441" class="Symbol">→</a> <a id="4443" href="#1687" class="Datatype">Term</a> <a id="4448" href="#4429" class="Bound">m</a><a id="4449" class="Symbol">)</a> <a id="4451" class="Symbol">→</a> <a id="4453" href="#1687" class="Datatype">Term</a> <a id="4458" href="#4427" class="Bound">n</a> <a id="4460" class="Symbol">→</a> <a id="4462" href="#1687" class="Datatype">Term</a> <a id="4467" href="#4429" class="Bound">m</a>
+<a id="4469" href="#4417" class="Function">subst</a> <a id="4475" href="#4475" class="Bound">f</a> <a id="4477" class="Symbol">(</a><a id="4478" href="#1710" class="InductiveConstructor Operator">`</a> <a id="4480" href="#4480" class="Bound">x</a><a id="4481" class="Symbol">)</a> <a id="4483" class="Symbol">=</a> <a id="4485" href="#4475" class="Bound">f</a> <a id="4487" href="#4480" class="Bound">x</a>
+<a id="4489" href="#4417" class="Function">subst</a> <a id="4495" href="#4495" class="Bound">f</a> <a id="4497" class="Symbol">(</a><a id="4498" href="#4498" class="Bound">t₁</a> <a id="4501" href="#1739" class="InductiveConstructor Operator">·</a> <a id="4503" href="#4503" class="Bound">t₂</a><a id="4505" class="Symbol">)</a> <a id="4507" class="Symbol">=</a> <a id="4509" href="#4417" class="Function">subst</a> <a id="4515" href="#4495" class="Bound">f</a> <a id="4517" href="#4498" class="Bound">t₁</a> <a id="4520" href="#1739" class="InductiveConstructor Operator">·</a> <a id="4522" href="#4417" class="Function">subst</a> <a id="4528" href="#4495" class="Bound">f</a> <a id="4530" href="#4503" class="Bound">t₂</a>
+<a id="4533" href="#4417" class="Function">subst</a> <a id="4539" class="Symbol">{</a><a id="4540" href="#4540" class="Bound">n</a><a id="4541" class="Symbol">}</a> <a id="4543" class="Symbol">{</a><a id="4544" href="#4544" class="Bound">m</a><a id="4545" class="Symbol">}</a> <a id="4547" href="#4547" class="Bound">f</a> <a id="4549" class="Symbol">(</a><a id="4550" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="4552" href="#4552" class="Bound">t</a><a id="4553" class="Symbol">)</a> <a id="4555" class="Symbol">=</a> <a id="4557" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="4559" href="#4417" class="Function">subst</a> <a id="4565" href="#4582" class="Function">f'</a> <a id="4568" href="#4552" class="Bound">t</a>
+  <a id="4572" class="Keyword">where</a>
+    <a id="4582" href="#4582" class="Function">f'</a> <a id="4585" class="Symbol">:</a> <a id="4587" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="4591" class="Symbol">(</a><a id="4592" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#223" class="InductiveConstructor">suc</a> <a id="4596" href="#4540" class="Bound">n</a><a id="4597" class="Symbol">)</a> <a id="4599" class="Symbol">→</a> <a id="4601" href="#1687" class="Datatype">Term</a> <a id="4606" class="Symbol">(</a><a id="4607" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#223" class="InductiveConstructor">suc</a> <a id="4611" href="#4544" class="Bound">m</a><a id="4612" class="Symbol">)</a>
+    <a id="4618" href="#4582" class="Function">f'</a> <a id="4621" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1168" class="InductiveConstructor">zero</a> <a id="4626" class="Symbol">=</a> <a id="4628" href="#1710" class="InductiveConstructor Operator">`</a> <a id="4630" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1168" class="InductiveConstructor">zero</a>
+    <a id="4639" href="#4582" class="Function">f'</a> <a id="4642" class="Symbol">(</a><a id="4643" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1199" class="InductiveConstructor">suc</a> <a id="4647" href="#4647" class="Bound">n</a><a id="4648" class="Symbol">)</a> <a id="4650" class="Symbol">=</a> <a id="4652" href="#3426" class="Function">rename</a> <a id="4659" class="Symbol">(</a><a id="4660" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#2349" class="Function">raise</a> <a id="4666" class="Number">1</a><a id="4667" class="Symbol">)</a> <a id="4669" class="Symbol">(</a><a id="4670" href="#4547" class="Bound">f</a> <a id="4672" href="#4647" class="Bound">n</a><a id="4673" class="Symbol">)</a>
+</pre>
+<ul>
+<li>如果项是变量，那么直接应用 <code>f</code>。</li>
+<li>如果项是应用的形式，对两个子项分别递归使用 <code>subst</code>。</li>
+<li>如果项是 <code>ƛ t</code> 的形式，我们依然对 <code>t</code> 递归应用 <code>subst</code>，类似于 <code>rename</code>，我们需要一个新的替换函数 <code>f' : Fin (suc n) → Term (suc m)</code>， <code>t</code> 中上下文索引为 0 的变量是 <code>ƛ t</code> 中绑定变量，所以不能替换； <code>t</code> 中上下文索引为 <code>suc i</code> 的变量对应 <code>ƛ t</code> 中上下文索引为 <code>i</code> 的变量，因此我们将其替换成 <code>f i</code>，又因为多了一层 λ，因此需要对 <code>f i</code> 中的自由变量索引 +1。</li>
+</ul>
+加上 <code>_[_]</code>，便完成了所有工作：
+<pre class="Agda"><a id="_[_]"></a><a id="5002" href="#5002" class="Function Operator">_[_]</a> <a id="5007" class="Symbol">:</a> <a id="5009" class="Symbol">∀{</a><a id="5011" href="#5011" class="Bound">n</a><a id="5012" class="Symbol">}</a> <a id="5014" class="Symbol">→</a> <a id="5016" href="#1687" class="Datatype">Term</a> <a id="5021" class="Symbol">(</a><a id="5022" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#223" class="InductiveConstructor">suc</a> <a id="5026" href="#5011" class="Bound">n</a><a id="5027" class="Symbol">)</a> <a id="5029" class="Symbol">→</a> <a id="5031" href="#1687" class="Datatype">Term</a> <a id="5036" href="#5011" class="Bound">n</a> <a id="5038" class="Symbol">→</a> <a id="5040" href="#1687" class="Datatype">Term</a> <a id="5045" href="#5011" class="Bound">n</a>
+<a id="5047" href="#5002" class="Function Operator">_[_]</a> <a id="5052" class="Symbol">{</a><a id="5053" href="#5053" class="Bound">n</a><a id="5054" class="Symbol">}</a> <a id="5056" href="#5056" class="Bound">t</a> <a id="5058" href="#5058" class="Bound">v</a> <a id="5060" class="Symbol">=</a> <a id="5062" href="#4417" class="Function">subst</a> <a id="5068" href="#5093" class="Function">subst-zero</a> <a id="5079" href="#5056" class="Bound">t</a>
+  <a id="5083" class="Keyword">where</a>
+    <a id="5093" href="#5093" class="Function">subst-zero</a> <a id="5104" class="Symbol">:</a> <a id="5106" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1146" class="Datatype">Fin</a> <a id="5110" class="Symbol">(</a><a id="5111" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Nat.html#223" class="InductiveConstructor">suc</a> <a id="5115" href="#5053" class="Bound">n</a><a id="5116" class="Symbol">)</a> <a id="5118" class="Symbol">→</a> <a id="5120" href="#1687" class="Datatype">Term</a> <a id="5125" href="#5053" class="Bound">n</a>
+    <a id="5131" href="#5093" class="Function">subst-zero</a> <a id="5142" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1168" class="InductiveConstructor">zero</a> <a id="5147" class="Symbol">=</a> <a id="5149" href="#5058" class="Bound">v</a>
+    <a id="5155" href="#5093" class="Function">subst-zero</a> <a id="5166" class="Symbol">(</a><a id="5167" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.Base.html#1199" class="InductiveConstructor">suc</a> <a id="5171" href="#5171" class="Bound">n</a><a id="5172" class="Symbol">)</a> <a id="5174" class="Symbol">=</a> <a id="5176" href="#1710" class="InductiveConstructor Operator">`</a> <a id="5178" href="#5171" class="Bound">n</a>
+</pre>
+<p>下面的例子验证了 <code>(λ. 1 0 2) (λ. 0)</code> 的结果：</p>
+<pre class="Agda"><a id="t1"></a><a id="5224" href="#5224" class="Function">t1</a> <a id="5227" class="Symbol">:</a> <a id="5229" href="#1687" class="Datatype">Term</a> <a id="5234" class="Number">2</a>
+<a id="5236" href="#5224" class="Function">t1</a> <a id="5239" class="Symbol">=</a> <a id="5241" class="Symbol">(</a><a id="5242" href="#1710" class="InductiveConstructor Operator">`</a><a id="5243" class="Symbol">(</a><a id="5244" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="5246" class="Number">1</a><a id="5247" class="Symbol">)</a> <a id="5249" href="#1739" class="InductiveConstructor Operator">·</a> <a id="5251" href="#1710" class="InductiveConstructor Operator">`</a><a id="5252" class="Symbol">(</a><a id="5253" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="5255" class="Number">0</a><a id="5256" class="Symbol">)</a> <a id="5258" href="#1739" class="InductiveConstructor Operator">·</a> <a id="5260" href="#1710" class="InductiveConstructor Operator">`</a><a id="5261" class="Symbol">(</a><a id="5262" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="5264" class="Number">2</a><a id="5265" class="Symbol">))</a><a id="5267" href="#5002" class="Function Operator">[</a> <a id="5269" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="5271" href="#1710" class="InductiveConstructor Operator">`</a><a id="5272" class="Symbol">(</a><a id="5273" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="5275" class="Number">0</a><a id="5276" class="Symbol">)</a> <a id="5278" href="#5002" class="Function Operator">]</a>
+
+<a id="t2"></a><a id="5281" href="#5281" class="Function">t2</a> <a id="5284" class="Symbol">:</a> <a id="5286" href="#1687" class="Datatype">Term</a> <a id="5291" class="Number">2</a>
+<a id="5293" href="#5281" class="Function">t2</a> <a id="5296" class="Symbol">=</a> <a id="5298" href="#1710" class="InductiveConstructor Operator">`</a><a id="5299" class="Symbol">(</a><a id="5300" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="5302" class="Number">0</a><a id="5303" class="Symbol">)</a> <a id="5305" href="#1739" class="InductiveConstructor Operator">·</a> <a id="5307" class="Symbol">(</a><a id="5308" href="#1779" class="InductiveConstructor Operator">ƛ</a> <a id="5310" href="#1710" class="InductiveConstructor Operator">`</a><a id="5311" class="Symbol">(</a><a id="5312" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="5314" class="Number">0</a><a id="5315" class="Symbol">))</a> <a id="5318" href="#1739" class="InductiveConstructor Operator">·</a> <a id="5320" href="#1710" class="InductiveConstructor Operator">`</a><a id="5321" class="Symbol">(</a><a id="5322" href="https://agda.github.io/agda-stdlib/v1.5/Data.Fin.html#730" class="Function Operator">#</a> <a id="5324" class="Number">1</a><a id="5325" class="Symbol">)</a>
+
+<a id="5328" href="#5328" class="Function">_</a> <a id="5330" class="Symbol">:</a> <a id="5332" href="#5224" class="Function">t1</a> <a id="5335" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Equality.html#151" class="Datatype Operator">≡</a> <a id="5337" href="#5281" class="Function">t2</a>
+<a id="5340" class="Symbol">_</a> <a id="5342" class="Symbol">=</a> <a id="5344" href="https://agda.github.io/agda-stdlib/v1.5/Agda.Builtin.Equality.html#208" class="InductiveConstructor">refl</a>
+</pre>
+
+    </div>
+    <div id="footer">
+        Site proudly generated by
+        <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+    </div>
+</body>
+
+</html>
